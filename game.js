@@ -118,46 +118,38 @@
   }
 
   /**
-   * Klassische Fliegerbombe (Silhouette wie Referenz):
-   * Heckflossen + Stab oben, tropfenförmiger Körper, spitze Nase unten.
-   * y = Mitte des Körpers; zeichnet nach unten fallend (Nase = vorne).
+   * Fliegerbombe: Heckflossen oben, breiter Körper, vorne (unten) rund.
    */
   function drawBomb(bomb) {
     const s = bomb.scale;
-    const bodyH = 72 * s;
-    const bodyW = 28 * s;
+    const halfW = 22 * s; // breiter Körper
+    const top = -28 * s;
+    const sideBottom = 18 * s; // wo der Halbkreis der Nase beginnt
     const finH = 22 * s;
-    const finW = 28 * s;
+    const finW = 34 * s;
     const stemH = 10 * s;
 
     ctx.save();
     ctx.translate(bomb.x, bomb.y);
 
-    // Körper: abgerundet oben, spitz unten
     ctx.fillStyle = "#0a0a0a";
+    // Körper: gerade Flanken + volle runde Nase vorne
     ctx.beginPath();
-    // oben (Schulter am Heck)
-    const top = -bodyH * 0.35;
-    const bottom = bodyH * 0.55;
-    const mid = bodyH * 0.15;
-    // tropfenartig
-    ctx.moveTo(0, bottom); // Spitze
-    ctx.bezierCurveTo(bodyW * 0.55, mid, bodyW * 0.5, top + 8 * s, bodyW * 0.42, top);
-    ctx.lineTo(-bodyW * 0.42, top);
-    ctx.bezierCurveTo(-bodyW * 0.5, top + 8 * s, -bodyW * 0.55, mid, 0, bottom);
+    ctx.moveTo(-halfW, top);
+    ctx.lineTo(halfW, top);
+    ctx.lineTo(halfW, sideBottom);
+    ctx.arc(0, sideBottom, halfW, 0, Math.PI, false); // rund nach unten
     ctx.closePath();
     ctx.fill();
 
-    // Heckflossen (zwei trapezförmige Flügel + Mittelstab)
+    // Heckflossen
     const finTop = top - finH;
     const finJoin = top + 2 * s;
     ctx.beginPath();
-    // linker Flügel
     ctx.moveTo(-2 * s, finJoin);
     ctx.lineTo(-finW * 0.5, finTop);
     ctx.lineTo(-finW * 0.12, finTop);
     ctx.lineTo(0, finJoin);
-    // rechter Flügel
     ctx.lineTo(finW * 0.12, finTop);
     ctx.lineTo(finW * 0.5, finTop);
     ctx.lineTo(2 * s, finJoin);
@@ -167,21 +159,20 @@
     // Mittelstab
     ctx.fillRect(-1.5 * s, finTop - stemH * 0.3, 3 * s, stemH + 4 * s);
 
-    // Aufgabe (hell auf dunklem Körper)
+    // Aufgabe
     ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${Math.round(13 * s)}px system-ui, sans-serif`;
+    ctx.font = `bold ${Math.round(12 * s)}px system-ui, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    // leichter Schatten für Lesbarkeit
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 2;
-    ctx.fillText(bomb.label, 0, top + bodyH * 0.28);
+    ctx.fillText(bomb.label, 0, top + 26 * s);
     ctx.shadowBlur = 0;
 
     ctx.restore();
   }
 
-  // ——— Kanone (Silhouette) ———
+  // ——— Kanone (Silhouette, ohne Räder) ———
   function drawCannon() {
     const c = state.cannon;
     const s = clamp(state.height / 700, 0.8, 1.3);
@@ -189,29 +180,19 @@
     ctx.save();
     ctx.translate(c.x, c.y);
 
-    // Lafette / Sockel
+    // Sockel / Plattform (flach, keine Räder)
     ctx.fillStyle = "#0a0a0a";
     ctx.beginPath();
-    ctx.moveTo(-36 * s, 10 * s);
-    ctx.lineTo(-28 * s, -6 * s);
-    ctx.lineTo(28 * s, -6 * s);
-    ctx.lineTo(36 * s, 10 * s);
+    ctx.moveTo(-32 * s, 8 * s);
+    ctx.lineTo(-26 * s, -4 * s);
+    ctx.lineTo(26 * s, -4 * s);
+    ctx.lineTo(32 * s, 8 * s);
     ctx.closePath();
     ctx.fill();
-
-    // Räder
-    ctx.beginPath();
-    ctx.arc(-22 * s, 12 * s, 10 * s, 0, Math.PI * 2);
-    ctx.arc(22 * s, 12 * s, 10 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#1e293b";
-    ctx.beginPath();
-    ctx.arc(-22 * s, 12 * s, 4 * s, 0, Math.PI * 2);
-    ctx.arc(22 * s, 12 * s, 4 * s, 0, Math.PI * 2);
-    ctx.fill();
+    // untere Basisplatte
+    ctx.fillRect(-34 * s, 6 * s, 68 * s, 8 * s);
 
     // Turm
-    ctx.fillStyle = "#0a0a0a";
     ctx.beginPath();
     ctx.ellipse(0, -8 * s, 18 * s, 14 * s, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -219,12 +200,9 @@
     // Lauf (rotiert)
     ctx.save();
     ctx.translate(0, -12 * s);
-    ctx.rotate(c.angle + Math.PI / 2); // angle 0 = rechts; wir speichern math. Winkel von +x
-    // angle: -PI/2 = nach oben
+    ctx.rotate(c.angle + Math.PI / 2);
     ctx.fillStyle = "#0a0a0a";
-    // Lauf-Körper
     ctx.fillRect(-5 * s, -48 * s, 10 * s, 48 * s);
-    // Mündung
     ctx.beginPath();
     ctx.moveTo(-8 * s, -48 * s);
     ctx.lineTo(8 * s, -48 * s);
@@ -232,7 +210,6 @@
     ctx.lineTo(-6 * s, -56 * s);
     ctx.closePath();
     ctx.fill();
-    // kleiner „Laser-Emitter“
     ctx.fillStyle = "#1e3a5f";
     ctx.fillRect(-3 * s, -52 * s, 6 * s, 8 * s);
     ctx.restore();
@@ -456,27 +433,13 @@
     drawCloud(w * 0.55, h * 0.08, 55);
     drawCloud(w * 0.82, h * 0.18, 36);
 
-    // Boden
+    // Boden (einfach grasgrün, ohne Kantenstreifen / Rasen)
     const ggrad = ctx.createLinearGradient(0, gy, 0, h);
     ggrad.addColorStop(0, "#4caf50");
-    ggrad.addColorStop(0.4, "#3d8b40");
+    ggrad.addColorStop(0.45, "#3d8b40");
     ggrad.addColorStop(1, "#2e6b30");
     ctx.fillStyle = ggrad;
     ctx.fillRect(0, gy, w, h - gy);
-
-    // Gras-Kante
-    ctx.fillStyle = "#66bb6a";
-    ctx.fillRect(0, gy, w, 6);
-    // kleine Grashalme
-    ctx.strokeStyle = "#2e7d32";
-    ctx.lineWidth = 2;
-    for (let x = 0; x < w; x += 14) {
-      const hx = x + (Math.sin(x * 0.2) * 3);
-      ctx.beginPath();
-      ctx.moveTo(hx, gy + 4);
-      ctx.lineTo(hx - 2, gy - 6 - (x % 5));
-      ctx.stroke();
-    }
   }
 
   function drawCloud(x, y, r) {
@@ -565,7 +528,7 @@
       // Kanone schaut zur Bombe
       aimCannonAt(bomb.x, bomb.y);
 
-      // Boden-Kollision (Nase ungefähr)
+      // Boden-Kollision (runde Nase: sideBottom + halfW ≈ 40*s)
       const noseY = bomb.y + 40 * bomb.scale;
       if (noseY >= state.groundY) {
         bombHitGround();
