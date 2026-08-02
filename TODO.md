@@ -21,18 +21,18 @@ Abgeleitet aus `SPEC.md`. Reihenfolge grob von Grundlage → spielbar → polier
 
 ## Phase 2 — Spiel-Logik Kern
 
-- [ ] Zufällige Aufgabe `a × b` mit a,b ∈ 1…20
-- [ ] Drei Distractoren erzeugen:
-  - [ ] Korrektes Produkt
-  - [ ] Faktor ±1 → neues Produkt (≠ korrekt)
-  - [ ] Nah dran ±1…3 (≠ den anderen)
-- [ ] Antworten mischen und in Buttons anzeigen
-- [ ] Bombe spawnen (oben, zufällige X), fallen lassen
-- [ ] Immer nur eine aktive Bombe
-- [ ] Richtige Antwort: Laser feuern, Bombe zerstören, Score +1, nächste Bombe
-- [ ] Falsche Antwort: visuelles Feedback, Bombe fällt weiter, Buttons bleiben nutzbar
-- [ ] Boden-Kollision: Explosion + Game Over
-- [ ] Game-Over-UI: Score + „Nochmal“-Button → Reset
+- [x] Zufällige Aufgabe `a × b` mit a,b ∈ 1…20
+- [x] Drei Distractoren erzeugen:
+  - [x] Korrektes Produkt
+  - [x] Faktor ±1 → neues Produkt (≠ korrekt)
+  - [x] Nah dran ±1…3 (≠ den anderen)
+- [x] Antworten mischen und in Buttons anzeigen
+- [x] Bombe spawnen (oben, zufällige X), fallen lassen
+- [x] Immer nur eine aktive Bombe
+- [x] Richtige Antwort: Laser feuern, Bombe zerstören, Score +1, nächste Bombe
+- [x] Falsche Antwort: visuelles Feedback, Bombe fällt weiter, Buttons bleiben nutzbar
+- [x] Boden-Kollision: Explosion + Game Over
+- [x] Game-Over-UI: Score + „Nochmal“-Button → Reset
 
 ## Phase 3 — Feinschliff
 
@@ -53,6 +53,6 @@ Abgeleitet aus `SPEC.md`. Reihenfolge grob von Grundlage → spielbar → polier
 
 ## Definition of Done (v1)
 
-- [ ] Alle Akzeptanzkriterien aus `SPEC.md` erfüllt
-- [ ] Spiel startet mit Doppelklick/`open` auf `index.html` ohne Build
-- [ ] Eine Runde spielbar: mehrere Bomben abschießen, dann Game Over am Boden, Neustart funktioniert
+- [x] Alle Akzeptanzkriterien aus `SPEC.md` erfüllt (Kern)
+- [x] Spiel startet mit Doppelklick/`open` auf `index.html` ohne Build
+- [x] Eine Runde spielbar: mehrere Bomben abschießen, dann Game Over am Boden, Neustart funktioniert
