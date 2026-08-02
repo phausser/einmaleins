@@ -2,12 +2,14 @@
  * Einmaleins-Bombenabwehr
  * Phase 0–1: Gerüst, Szene, Partikel, Laser, Explosion
  * Phase 2: Aufgaben, Ablenkantworten, Buttons, Game Over
+ * Phase 3: Feinschliff (Tempo, Touch-UI, Layout, Edge Cases)
  */
 
 (() => {
   "use strict";
 
   // ——— DOM ———
+  const gameRoot = document.getElementById("game-root");
   const canvas = document.getElementById("game-canvas");
   const ctx = canvas.getContext("2d");
   const scoreEl = document.getElementById("score");
@@ -20,12 +22,13 @@
 
   // ——— Konstanten ———
   const GROUND_RATIO = 0.12;
-  const BOMB_FALL_SPEED = 65; // px/s
+  /** ca. Sekunden von Spawn bis Boden (kindgerecht) */
+  const FALL_DURATION_SEC = 11;
   const PARTICLE_RATE = 48;
   const LASER_DURATION = 0.45;
   const EXPLOSION_DURATION = 0.7;
   const RESPAWN_DELAY = 0.55;
-  const GAME_OVER_DELAY = 0.75; // Explosion kurz zeigen
+  const GAME_OVER_DELAY = 0.75;
 
   // ——— Zustand ———
   const state = {
@@ -76,64 +79,109 @@
 
   // ——— Ablenkantworten ———
   /**
+   * Mögliche Produkte, wenn genau ein Faktor um ±1 verändert wird.
+   * Faktor bleibt ≥ 1 (nie 0).
+   */
+  function factorWrongCandidates(a, b, correct) {
+    const pairs = [
+      [a + 1, b],
+      [a - 1, b],
+      [a, b + 1],
+      [a, b - 1],
+    ];
+    const out = [];
+    for (const [fa, fb] of pairs) {
+      if (fa < 1 || fb < 1) continue;
+      const p = fa * fb;
+      if (p > 0 && p !== correct && !out.includes(p)) out.push(p);
+    }
+    return out;
+  }
+
+  function pickNearMiss(correct, used) {
+    const offsets = shuffle([-3, -2, -1, 1, 2, 3]);
+    for (const d of offsets) {
+      const n = correct + d;
+      if (n > 0 && !used.has(n)) return n;
+    }
+    for (let d = 1; d < 80; d++) {
+      for (const sign of [1, -1]) {
+        const n = correct + d * sign;
+        if (n > 0 && !used.has(n)) return n;
+      }
+    }
+    return correct + 4;
+  }
+
+  /**
    * Drei unique Ergebnisse:
    * 1) korrekt a*b
    * 2) ein Faktor ±1 → neues Produkt
-   * 3) korrekt ±1…3
+   * 3) korrekt ±1…3 (sonst nächstes freies)
    */
   function generateAnswers(a, b) {
     const correct = a * b;
+    const used = new Set([correct]);
 
-    let factorWrong = correct;
-    for (let tries = 0; tries < 30 && factorWrong === correct; tries++) {
-      const changeA = Math.random() < 0.5;
-      const delta = Math.random() < 0.5 ? -1 : 1;
-      let a2 = a;
-      let b2 = b;
-      if (changeA) {
-        a2 = a + delta;
-        if (a2 < 1) a2 = a + 1;
-      } else {
-        b2 = b + delta;
-        if (b2 < 1) b2 = b + 1;
-      }
-      factorWrong = a2 * b2;
+    const factorOpts = factorWrongCandidates(a, b, correct);
+    let factorWrong;
+    if (factorOpts.length > 0) {
+      factorWrong = factorOpts[randInt(0, factorOpts.length - 1)];
+    } else {
+      // z. B. theoretisch leer — Fallback
+      factorWrong = correct + Math.max(a, b, 1);
     }
-    if (factorWrong === correct) {
-      factorWrong = correct + 1;
-    }
+    used.add(factorWrong);
 
-    const offsets = shuffle([-3, -2, -1, 1, 2, 3]);
-    let near = null;
-    for (const d of offsets) {
-      const n = correct + d;
-      if (n > 0 && n !== correct && n !== factorWrong) {
-        near = n;
-        break;
-      }
-    }
-    if (near === null) {
-      // Fallback: nächstes freies positives Ergebnis
-      for (let d = 1; d < 50; d++) {
-        for (const sign of [1, -1]) {
-          const n = correct + d * sign;
-          if (n > 0 && n !== correct && n !== factorWrong) {
-            near = n;
-            break;
-          }
-        }
-        if (near !== null) break;
-      }
+    const near = pickNearMiss(correct, used);
+    used.add(near);
+
+    // Garantie: exakt 3 unterschiedliche Werte
+    const values = [correct, factorWrong, near];
+    if (new Set(values).size !== 3) {
+      const repair = pickNearMiss(correct, new Set([correct, factorWrong]));
+      values[2] = repair;
     }
 
     return shuffle([
-      { value: correct, correct: true },
-      { value: factorWrong, correct: false },
-      { value: near, correct: false },
+      { value: values[0], correct: true },
+      { value: values[1], correct: false },
+      { value: values[2], correct: false },
     ]);
   }
 
-  // ——— Resize ———
+  /** Selbstcheck (Dev): 1×1 … 20×20 mit Regel „ein Faktor ≤10“ */
+  function assertAnswerGenerator() {
+    for (let a = 1; a <= 20; a++) {
+      for (let b = 1; b <= 20; b++) {
+        if (a > 10 && b > 10) continue;
+        const opts = generateAnswers(a, b);
+        const vals = opts.map((o) => o.value);
+        if (new Set(vals).size !== 3) {
+          console.warn("Nicht unique:", a, b, vals);
+        }
+        if (!opts.some((o) => o.correct && o.value === a * b)) {
+          console.warn("Korrekt fehlt:", a, b, opts);
+        }
+        if (vals.some((v) => v <= 0)) {
+          console.warn("Nicht-positiv:", a, b, vals);
+        }
+      }
+    }
+  }
+
+  // ——— Resize / Layout ———
+  function updateLayoutVars() {
+    const groundH = state.height * GROUND_RATIO;
+    const cannonS = clamp(state.height / 700, 0.8, 1.3);
+    // Freiraum über dem Boden für Sockel + Lauf (Buttons sitzen darüber)
+    const cannonClear = Math.round(72 * cannonS);
+    if (gameRoot) {
+      gameRoot.style.setProperty("--ground-h", `${groundH}px`);
+      gameRoot.style.setProperty("--cannon-clear", `${cannonClear}px`);
+    }
+  }
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = window.innerWidth;
@@ -151,6 +199,7 @@
 
     state.cannon.x = w / 2;
     state.cannon.y = state.groundY - 8;
+    updateLayoutVars();
   }
 
   // ——— Bombe ———
@@ -170,14 +219,22 @@
   }
 
   function createBomb() {
-    const margin = 48;
-    const [a, b] = randomFactors();
     const scale = clamp(state.height / 700, 0.75, 1.35);
+    const halfW = 22 * scale;
+    const margin = Math.max(48, halfW + 16);
+    const [a, b] = randomFactors();
     const answers = generateAnswers(a, b);
+
+    // Konstante Fallzeit ≈ FALL_DURATION_SEC (unabhängig von Bildschirmhöhe)
+    const spawnY = -60 * scale;
+    const noseOffset = 40 * scale;
+    const travel = Math.max(120, state.groundY - noseOffset - spawnY);
+    const vy = travel / FALL_DURATION_SEC;
+
     return {
-      x: rand(margin, state.width - margin),
-      y: -60 * scale,
-      vy: BOMB_FALL_SPEED * scale,
+      x: rand(margin, Math.max(margin + 1, state.width - margin)),
+      y: spawnY,
+      vy,
       scale,
       a,
       b,
@@ -201,6 +258,10 @@
       const opt = answers[i];
       btn.textContent = String(opt.value);
       btn.dataset.correct = opt.correct ? "1" : "0";
+      btn.setAttribute(
+        "aria-label",
+        `Antwort ${opt.value}${opt.correct ? "" : ""}`
+      );
       btn.disabled = false;
       btn.classList.remove("wrong", "correct");
     });
@@ -547,8 +608,15 @@
     state.bomb = null;
     state.score += 1;
     updateScoreUI();
+    hideHintIfNeeded();
     state.respawnAt = state.time + RESPAWN_DELAY + LASER_DURATION * 0.3;
     return true;
+  }
+
+  function hideHintIfNeeded() {
+    if (phaseHintEl && state.score >= 1) {
+      phaseHintEl.classList.add("is-hidden");
+    }
   }
 
   function bombHitGround() {
@@ -610,6 +678,7 @@
     state.cannon.targetAngle = -Math.PI / 2;
     updateScoreUI();
     gameOverEl.hidden = true;
+    if (phaseHintEl) phaseHintEl.classList.remove("is-hidden");
     hideAnswers();
     spawnBomb();
     state.running = true;
@@ -689,12 +758,20 @@
     });
 
     answerBtns.forEach((btn) => {
-      btn.addEventListener("click", () => onAnswerClick(btn));
+      // pointerup: bessere Touch-Latenz, verhindert Doppel-Fire mit click
+      btn.addEventListener("pointerup", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        e.preventDefault();
+        onAnswerClick(btn);
+      });
     });
 
     if (phaseHintEl) {
       phaseHintEl.textContent = "Wähle das richtige Ergebnis — zerstöre die Bombe!";
     }
+
+    // Generator-Sanity (still, nur bei Fehlern console.warn)
+    assertAnswerGenerator();
 
     resetGame();
     requestAnimationFrame(frame);

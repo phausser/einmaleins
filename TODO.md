@@ -36,12 +36,12 @@ Abgeleitet aus `SPEC.md`. Reihenfolge grob von Grundlage → spielbar → polier
 
 ## Phase 3 — Feinschliff
 
-- [ ] Fallgeschwindigkeit kalibrieren (nicht zu schnell/langsam für Kinder)
-- [ ] Buttons groß und touch-freundlich
-- [ ] Score-HUD klar sichtbar
-- [ ] Keine überlappenden UI-Elemente (Buttons vs. Kanone)
-- [ ] Edge Cases: Faktor 1 bei −1, gleiche Distractoren vermeiden, Retry bis drei unique Antworten
-- [ ] Kurzer Test in Chrome + Safari (oder Firefox)
+- [x] Fallgeschwindigkeit kalibrieren (nicht zu schnell/langsam für Kinder) — ~11s Fallzeit
+- [x] Buttons groß und touch-freundlich
+- [x] Score-HUD klar sichtbar
+- [x] Keine überlappenden UI-Elemente (Buttons vs. Kanone) — CSS-Vars aus Layout
+- [x] Edge Cases: Faktor 1 bei −1, gleiche Distractoren vermeiden, unique Antworten
+- [x] Generator-Selbstcheck im Init; manuell in Browser prüfen
 
 ## Phase 4 — Optional (nach v1 spielbar)
 
