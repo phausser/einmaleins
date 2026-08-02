@@ -1,0 +1,58 @@
+# TODO — Einmaleins-Bombenabwehr
+
+Abgeleitet aus `SPEC.md`. Reihenfolge grob von Grundlage → spielbar → poliert.
+
+## Phase 0 — Projektgrundlage
+
+- [x] `index.html` mit Canvas, HUD, Antwort-Container, Game-Over-Overlay
+- [x] `styles.css`: Layout full viewport, blauer Himmel, grasgrüner Boden, Button-/HUD-Styles
+- [x] `game.js` Skeleton: Game-Loop (`requestAnimationFrame`), Resize, Start/Reset
+- [x] Ordner `assets/` anlegen (optional für SVG/PNG)
+
+## Phase 1 — Szene & Objekte zeichnen
+
+- [x] Himmel + Boden auf Canvas (oder CSS-Hintergrund + Canvas darüber)
+- [x] Bombe zeichnen (Silhouette wie Referenz: Körper, Flossen, Spitze)
+- [x] Matheaufgabe als Text auf/über der Bombe (gut lesbar)
+- [x] Laserkanone unten in ähnlichem Silhouetten-Stil
+- [x] Partikelsystem: Antriebsspur hinter fallender Bombe
+- [x] Explosionseffekt (Partikel-Burst)
+- [x] Laser-Strahl-Animation (Kanone → Bombe)
+
+## Phase 2 — Spiel-Logik Kern
+
+- [ ] Zufällige Aufgabe `a × b` mit a,b ∈ 1…20
+- [ ] Drei Distractoren erzeugen:
+  - [ ] Korrektes Produkt
+  - [ ] Faktor ±1 → neues Produkt (≠ korrekt)
+  - [ ] Nah dran ±1…3 (≠ den anderen)
+- [ ] Antworten mischen und in Buttons anzeigen
+- [ ] Bombe spawnen (oben, zufällige X), fallen lassen
+- [ ] Immer nur eine aktive Bombe
+- [ ] Richtige Antwort: Laser feuern, Bombe zerstören, Score +1, nächste Bombe
+- [ ] Falsche Antwort: visuelles Feedback, Bombe fällt weiter, Buttons bleiben nutzbar
+- [ ] Boden-Kollision: Explosion + Game Over
+- [ ] Game-Over-UI: Score + „Nochmal“-Button → Reset
+
+## Phase 3 — Feinschliff
+
+- [ ] Fallgeschwindigkeit kalibrieren (nicht zu schnell/langsam für Kinder)
+- [ ] Buttons groß und touch-freundlich
+- [ ] Score-HUD klar sichtbar
+- [ ] Keine überlappenden UI-Elemente (Buttons vs. Kanone)
+- [ ] Edge Cases: Faktor 1 bei −1, gleiche Distractoren vermeiden, Retry bis drei unique Antworten
+- [ ] Kurzer Test in Chrome + Safari (oder Firefox)
+
+## Phase 4 — Optional (nach v1 spielbar)
+
+- [ ] Leichte Geschwindigkeitssteigerung mit Score
+- [ ] Sounds (Fall, Laser, Boom, Fail)
+- [ ] Highscore in `localStorage`
+- [ ] Tasten 1/2/3 für Antworten
+- [ ] Titel-Screen / kurze Anleitung vor dem ersten Start
+
+## Definition of Done (v1)
+
+- [ ] Alle Akzeptanzkriterien aus `SPEC.md` erfüllt
+- [ ] Spiel startet mit Doppelklick/`open` auf `index.html` ohne Build
+- [ ] Eine Runde spielbar: mehrere Bomben abschießen, dann Game Over am Boden, Neustart funktioniert

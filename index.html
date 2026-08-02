@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Einmaleins-Bombenabwehr</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas" aria-label="Spielbereich"></canvas>
+
+    <header id="hud">
+      <div id="score-wrap">
+        <span class="label">Punkte</span>
+        <span id="score">0</span>
+      </div>
+      <div id="phase-hint" class="hint">Phase 0–1 · Demo: Bombe fällt · Leertaste = Laser · G = Boden-Explosion</div>
+    </header>
+
+    <div id="answers" class="answers" hidden aria-live="polite">
+      <button type="button" class="answer-btn" data-index="0">—</button>
+      <button type="button" class="answer-btn" data-index="1">—</button>
+      <button type="button" class="answer-btn" data-index="2">—</button>
+    </div>
+
+    <div id="game-over" class="overlay" hidden>
+      <div class="overlay-card">
+        <h1>Game Over</h1>
+        <p>Punkte: <strong id="final-score">0</strong></p>
+        <button type="button" id="restart-btn" class="primary-btn">Nochmal</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
