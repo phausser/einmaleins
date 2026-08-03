@@ -771,11 +771,21 @@
       btn.classList.add("correct");
       destroyBombWithLaser();
     } else {
+      // Falsch: markieren, richtige Lösung aufblinken, keine weitere Eingabe
+      state.inputLocked = true;
       SFX.fail();
       btn.classList.remove("wrong");
       void btn.offsetWidth;
       btn.classList.add("wrong");
-      window.setTimeout(() => btn.classList.remove("wrong"), 400);
+
+      answerBtns.forEach((b) => {
+        b.disabled = true;
+        if (b.dataset.correct === "1") {
+          b.classList.remove("correct");
+          void b.offsetWidth;
+          b.classList.add("correct");
+        }
+      });
     }
   }
 

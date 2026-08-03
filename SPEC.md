@@ -38,7 +38,7 @@ Zielgruppe: Kinder, die das Einmaleins (1×1 bis 20×20) üben.
    - **Nah dran**: richtiges Ergebnis ± 1, 2 oder 3 (nicht identisch mit den anderen beiden)
 5. **Spieler klickt** eine Antwort:
    - **Richtig**: Laser zielt auf die Bombe, feuert, Bombe wird zerstört (Explosion/Partikel). Score +1. Nächste Bombe.
-   - **Falsch**: Feedback (z. B. kurzes Blinken/Rot), Bombe fällt weiter; optional keine zweite Chance für dieselbe Bombe oder Buttons bleiben bis Treffer/Boden — **Festlegung: nach falscher Antwort bleiben die Buttons aktiv, bis richtig getroffen oder Bombe am Boden** (Lernfreundlichkeit).
+   - **Falsch**: gewählter Button rot; **richtige** Antwort blinkt grün auf; **keine weitere Eingabe** für diese Bombe. Bombe fällt weiter bis Boden → Game Over.
 6. **Bombe erreicht Boden** → große Explosion → **Game Over**. Anzeige Score + Neustart-Button.
 7. Bomben kommen **nacheinander** (immer nur eine aktive Bombe).
 
@@ -114,7 +114,7 @@ einmaleins/
 3. Auf jeder Bombe steht eine Aufgabe `a × b` (1–20).
 4. Genau drei Antworten: korrekt, Faktor±1-Produkt, nah dran (±1…3); Reihenfolge zufällig.
 5. Richtige Antwort → Laser trifft Bombe → Zerstörung → Score +1 → nächste Bombe.
-6. Falsche Antwort → Bombe fällt weiter; Spiel endet nicht sofort.
+6. Falsche Antwort → richtige Lösung blinkt auf, Eingabe gesperrt; Bombe fällt weiter bis Game Over.
 7. Bombe am Boden → Explosion → Game Over mit Score und Neustart.
 8. Immer nur eine Bombe gleichzeitig.
 9. Läuft in modernen Browsern (Chrome, Firefox, Safari) ohne Build-Schritt.

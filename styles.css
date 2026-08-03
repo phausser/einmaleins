@@ -210,6 +210,17 @@ body {
 
 .answer-btn.correct {
   background: #bbf7d0;
+  animation: correct-flash 0.55s ease 2;
+}
+
+.answer-btn:disabled.correct {
+  opacity: 1;
+  border-color: #15803d;
+  box-shadow: 0 6px 0 #15803d;
+}
+
+.answer-btn:disabled.wrong {
+  opacity: 0.75;
 }
 
 @keyframes shake {
@@ -222,6 +233,16 @@ body {
   }
   75% {
     transform: translateX(7px);
+  }
+}
+
+@keyframes correct-flash {
+  0%,
+  100% {
+    background: #bbf7d0;
+  }
+  50% {
+    background: #4ade80;
   }
 }
 
