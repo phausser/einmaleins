@@ -10,24 +10,54 @@
   <div id="game-root">
     <canvas id="game-canvas" aria-label="Spielbereich"></canvas>
 
-    <header id="hud">
+    <header id="hud" hidden>
       <div id="score-wrap">
         <span class="label">Punkte</span>
         <span id="score">0</span>
+      </div>
+      <div id="highscore-wrap" title="Bester Score">
+        <span class="label">Best</span>
+        <span id="highscore">0</span>
       </div>
       <div id="phase-hint" class="hint">Wähle das richtige Ergebnis — zerstöre die Bombe!</div>
     </header>
 
     <div id="answers" class="answers" hidden aria-live="polite">
-      <button type="button" class="answer-btn" data-index="0">—</button>
-      <button type="button" class="answer-btn" data-index="1">—</button>
-      <button type="button" class="answer-btn" data-index="2">—</button>
+      <button type="button" class="answer-btn" data-index="0" aria-keyshortcuts="1">
+        <span class="key-badge" aria-hidden="true">1</span>
+        <span class="answer-value">—</span>
+      </button>
+      <button type="button" class="answer-btn" data-index="1" aria-keyshortcuts="2">
+        <span class="key-badge" aria-hidden="true">2</span>
+        <span class="answer-value">—</span>
+      </button>
+      <button type="button" class="answer-btn" data-index="2" aria-keyshortcuts="3">
+        <span class="key-badge" aria-hidden="true">3</span>
+        <span class="answer-value">—</span>
+      </button>
+    </div>
+
+    <div id="title-screen" class="overlay">
+      <div class="overlay-card title-card">
+        <h1>Einmaleins-<br />Bombenabwehr</h1>
+        <ul class="howto">
+          <li>Auf der Bombe steht eine Aufgabe</li>
+          <li>Wähle das <strong>richtige</strong> Ergebnis</li>
+          <li>Der Laser zerstört die Bombe</li>
+          <li>Erreicht sie den Boden → Game Over</li>
+        </ul>
+        <p class="highscore-line">Highscore: <strong id="title-highscore">0</strong></p>
+        <p class="keys-hint">Optional: Tasten <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
+        <button type="button" id="start-btn" class="primary-btn">Start</button>
+      </div>
     </div>
 
     <div id="game-over" class="overlay" hidden>
       <div class="overlay-card">
         <h1>Game Over</h1>
         <p>Punkte: <strong id="final-score">0</strong></p>
+        <p class="highscore-line">Highscore: <strong id="final-highscore">0</strong></p>
+        <p id="new-record" class="new-record" hidden>Neuer Highscore!</p>
         <button type="button" id="restart-btn" class="primary-btn">Nochmal</button>
       </div>
     </div>

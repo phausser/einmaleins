@@ -1,8 +1,7 @@
 /**
  * Einmaleins-Bombenabwehr
- * Phase 0–1: Gerüst, Szene, Partikel, Laser, Explosion
- * Phase 2: Aufgaben, Ablenkantworten, Buttons, Game Over
- * Phase 3: Feinschliff (Tempo, Touch-UI, Layout, Edge Cases)
+ * Phase 0–3: Gerüst, Szene, Logik, Feinschliff
+ * Phase 4: Titel, Highscore, Sounds, Tasten 1–3, Speed-Ramp
  */
 
 (() => {
@@ -12,30 +11,42 @@
   const gameRoot = document.getElementById("game-root");
   const canvas = document.getElementById("game-canvas");
   const ctx = canvas.getContext("2d");
+  const hudEl = document.getElementById("hud");
   const scoreEl = document.getElementById("score");
+  const highscoreEl = document.getElementById("highscore");
   const finalScoreEl = document.getElementById("final-score");
+  const finalHighscoreEl = document.getElementById("final-highscore");
+  const titleHighscoreEl = document.getElementById("title-highscore");
+  const newRecordEl = document.getElementById("new-record");
   const answersEl = document.getElementById("answers");
   const answerBtns = [...document.querySelectorAll(".answer-btn")];
   const gameOverEl = document.getElementById("game-over");
+  const titleScreenEl = document.getElementById("title-screen");
   const restartBtn = document.getElementById("restart-btn");
+  const startBtn = document.getElementById("start-btn");
   const phaseHintEl = document.getElementById("phase-hint");
 
   // ——— Konstanten ———
   const GROUND_RATIO = 0.12;
-  /** ca. Sekunden von Spawn bis Boden (kindgerecht) */
-  const FALL_DURATION_SEC = 11;
+  /** Basis-Fallzeit (s); wird mit Score kürzer */
+  const FALL_DURATION_BASE = 11;
+  const FALL_DURATION_MIN = 6.5;
+  const FALL_SPEEDUP_PER_POINT = 0.28;
   const PARTICLE_RATE = 48;
   const LASER_DURATION = 0.45;
   const EXPLOSION_DURATION = 0.7;
   const RESPAWN_DELAY = 0.55;
   const GAME_OVER_DELAY = 0.75;
+  const HS_KEY = "einmaleins-bomben-highscore";
 
   // ——— Zustand ———
   const state = {
+    phase: "title", // title | playing | gameover
     running: false,
     gameOver: false,
     inputLocked: false,
     score: 0,
+    highScore: 0,
     width: 0,
     height: 0,
     dpr: 1,
@@ -54,6 +65,114 @@
     respawnAt: 0,
     time: 0,
     gameOverAt: 0,
+  };
+
+  // ——— Highscore ———
+  function loadHighScore() {
+    try {
+      const n = parseInt(localStorage.getItem(HS_KEY) || "0", 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function saveHighScore(n) {
+    try {
+      localStorage.setItem(HS_KEY, String(n));
+    } catch {
+      /* private mode / blocked */
+    }
+  }
+
+  function updateHighScoreUI() {
+    if (highscoreEl) highscoreEl.textContent = String(state.highScore);
+    if (titleHighscoreEl) titleHighscoreEl.textContent = String(state.highScore);
+    if (finalHighscoreEl) finalHighscoreEl.textContent = String(state.highScore);
+  }
+
+  // ——— Sounds (Web Audio, ohne Dateien) ———
+  const SFX = {
+    ctx: null,
+
+    ensure() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!this.ctx) this.ctx = new AC();
+      if (this.ctx.state === "suspended") this.ctx.resume();
+      return this.ctx;
+    },
+
+    tone(freq, dur, type = "square", gain = 0.08, slideTo = null) {
+      const ctx = this.ensure();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      if (slideTo != null) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
+      }
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    },
+
+    noiseBurst(dur, gain = 0.12) {
+      const ctx = this.ensure();
+      if (!ctx) return;
+      const n = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 900;
+      g.gain.value = gain;
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(ctx.destination);
+      src.start();
+    },
+
+    laser() {
+      this.tone(880, 0.12, "sawtooth", 0.06, 220);
+      this.tone(1320, 0.08, "square", 0.03, 400);
+    },
+
+    boom(big = false) {
+      this.noiseBurst(big ? 0.45 : 0.28, big ? 0.18 : 0.12);
+      this.tone(big ? 90 : 140, big ? 0.4 : 0.25, "sine", big ? 0.14 : 0.09, 40);
+    },
+
+    fail() {
+      this.tone(220, 0.12, "square", 0.07, 110);
+      window.setTimeout(() => this.tone(160, 0.14, "square", 0.06, 80), 80);
+    },
+
+    spawn() {
+      this.tone(320, 0.1, "triangle", 0.04, 180);
+    },
+
+    ui() {
+      this.tone(520, 0.06, "triangle", 0.05);
+    },
+
+    record() {
+      this.tone(523, 0.1, "square", 0.06);
+      window.setTimeout(() => this.tone(659, 0.1, "square", 0.06), 90);
+      window.setTimeout(() => this.tone(784, 0.16, "square", 0.07), 180);
+    },
   };
 
   // ——— Hilfen ———
@@ -77,11 +196,14 @@
     return arr;
   }
 
+  function fallDurationForScore(score) {
+    return Math.max(
+      FALL_DURATION_MIN,
+      FALL_DURATION_BASE - score * FALL_SPEEDUP_PER_POINT
+    );
+  }
+
   // ——— Ablenkantworten ———
-  /**
-   * Mögliche Produkte, wenn genau ein Faktor um ±1 verändert wird.
-   * Faktor bleibt ≥ 1 (nie 0).
-   */
   function factorWrongCandidates(a, b, correct) {
     const pairs = [
       [a + 1, b],
@@ -113,12 +235,6 @@
     return correct + 4;
   }
 
-  /**
-   * Drei unique Ergebnisse:
-   * 1) korrekt a*b
-   * 2) ein Faktor ±1 → neues Produkt
-   * 3) korrekt ±1…3 (sonst nächstes freies)
-   */
   function generateAnswers(a, b) {
     const correct = a * b;
     const used = new Set([correct]);
@@ -128,19 +244,14 @@
     if (factorOpts.length > 0) {
       factorWrong = factorOpts[randInt(0, factorOpts.length - 1)];
     } else {
-      // z. B. theoretisch leer — Fallback
       factorWrong = correct + Math.max(a, b, 1);
     }
     used.add(factorWrong);
 
     const near = pickNearMiss(correct, used);
-    used.add(near);
-
-    // Garantie: exakt 3 unterschiedliche Werte
     const values = [correct, factorWrong, near];
     if (new Set(values).size !== 3) {
-      const repair = pickNearMiss(correct, new Set([correct, factorWrong]));
-      values[2] = repair;
+      values[2] = pickNearMiss(correct, new Set([correct, factorWrong]));
     }
 
     return shuffle([
@@ -150,21 +261,15 @@
     ]);
   }
 
-  /** Selbstcheck (Dev): 1×1 … 20×20 mit Regel „ein Faktor ≤10“ */
   function assertAnswerGenerator() {
     for (let a = 1; a <= 20; a++) {
       for (let b = 1; b <= 20; b++) {
         if (a > 10 && b > 10) continue;
         const opts = generateAnswers(a, b);
         const vals = opts.map((o) => o.value);
-        if (new Set(vals).size !== 3) {
-          console.warn("Nicht unique:", a, b, vals);
-        }
+        if (new Set(vals).size !== 3) console.warn("Nicht unique:", a, b, vals);
         if (!opts.some((o) => o.correct && o.value === a * b)) {
           console.warn("Korrekt fehlt:", a, b, opts);
-        }
-        if (vals.some((v) => v <= 0)) {
-          console.warn("Nicht-positiv:", a, b, vals);
         }
       }
     }
@@ -174,7 +279,6 @@
   function updateLayoutVars() {
     const groundH = state.height * GROUND_RATIO;
     const cannonS = clamp(state.height / 700, 0.8, 1.3);
-    // Freiraum über dem Boden für Sockel + Lauf (Buttons sitzen darüber)
     const cannonClear = Math.round(72 * cannonS);
     if (gameRoot) {
       gameRoot.style.setProperty("--ground-h", `${groundH}px`);
@@ -203,15 +307,10 @@
   }
 
   // ——— Bombe ———
-  /**
-   * Faktoren 1–20, aber höchstens einer > 10
-   * (z. B. 12×8 ok, 12×15 nicht).
-   */
   function randomFactors() {
     let a = randInt(1, 20);
     let b = randInt(1, 20);
     if (a > 10 && b > 10) {
-      // einen der beiden auf 1…10 setzen
       if (Math.random() < 0.5) a = randInt(1, 10);
       else b = randInt(1, 10);
     }
@@ -225,11 +324,11 @@
     const [a, b] = randomFactors();
     const answers = generateAnswers(a, b);
 
-    // Konstante Fallzeit ≈ FALL_DURATION_SEC (unabhängig von Bildschirmhöhe)
     const spawnY = -60 * scale;
     const noseOffset = 40 * scale;
     const travel = Math.max(120, state.groundY - noseOffset - spawnY);
-    const vy = travel / FALL_DURATION_SEC;
+    const duration = fallDurationForScore(state.score);
+    const vy = travel / duration;
 
     return {
       x: rand(margin, Math.max(margin + 1, state.width - margin)),
@@ -251,17 +350,17 @@
     state.respawnAt = 0;
     state.inputLocked = false;
     showAnswers(state.bomb.answers);
+    SFX.spawn();
   }
 
   function showAnswers(answers) {
     answerBtns.forEach((btn, i) => {
       const opt = answers[i];
-      btn.textContent = String(opt.value);
+      const valueEl = btn.querySelector(".answer-value");
+      if (valueEl) valueEl.textContent = String(opt.value);
+      else btn.textContent = String(opt.value);
       btn.dataset.correct = opt.correct ? "1" : "0";
-      btn.setAttribute(
-        "aria-label",
-        `Antwort ${opt.value}${opt.correct ? "" : ""}`
-      );
+      btn.setAttribute("aria-label", `Antwort ${i + 1}: ${opt.value}`);
       btn.disabled = false;
       btn.classList.remove("wrong", "correct");
     });
@@ -276,9 +375,6 @@
     });
   }
 
-  /**
-   * Fliegerbombe: Heckflossen oben, breiter Körper, vorne (unten) rund.
-   */
   function drawBomb(bomb) {
     const s = bomb.scale;
     const halfW = 22 * s;
@@ -428,6 +524,7 @@
       duration: EXPLOSION_DURATION,
       big,
     });
+    SFX.boom(big);
   }
 
   function updateParticles(dt) {
@@ -512,6 +609,7 @@
       t: 0,
       duration: LASER_DURATION,
     });
+    SFX.laser();
   }
 
   function updateLasers(dt) {
@@ -634,9 +732,22 @@
   function showGameOver() {
     state.gameOver = true;
     state.running = false;
+    state.phase = "gameover";
     state.inputLocked = true;
     hideAnswers();
+
     finalScoreEl.textContent = String(state.score);
+    let isRecord = false;
+    if (state.score > state.highScore) {
+      state.highScore = state.score;
+      saveHighScore(state.highScore);
+      isRecord = true;
+    }
+    updateHighScoreUI();
+    if (newRecordEl) {
+      newRecordEl.hidden = !isRecord;
+      if (isRecord) SFX.record();
+    }
     gameOverEl.hidden = false;
   }
 
@@ -645,7 +756,13 @@
   }
 
   function onAnswerClick(btn) {
-    if (state.gameOver || state.inputLocked || !state.bomb || !state.bomb.alive) {
+    if (
+      state.phase !== "playing" ||
+      state.gameOver ||
+      state.inputLocked ||
+      !state.bomb ||
+      !state.bomb.alive
+    ) {
       return;
     }
 
@@ -654,35 +771,57 @@
       btn.classList.add("correct");
       destroyBombWithLaser();
     } else {
+      SFX.fail();
       btn.classList.remove("wrong");
-      // reflow für erneute Shake-Animation
       void btn.offsetWidth;
       btn.classList.add("wrong");
       window.setTimeout(() => btn.classList.remove("wrong"), 400);
-      // Buttons bleiben nutzbar (Spec)
     }
   }
 
-  function resetGame() {
-    state.gameOver = false;
-    state.inputLocked = false;
-    state.score = 0;
+  function clearWorld() {
     state.particles = [];
     state.lasers = [];
     state.explosions = [];
     state.bomb = null;
-    state.time = 0;
     state.respawnAt = 0;
     state.gameOverAt = 0;
     state.cannon.angle = -Math.PI / 2;
     state.cannon.targetAngle = -Math.PI / 2;
+  }
+
+  function startGame() {
+    SFX.ensure();
+    SFX.ui();
+    state.phase = "playing";
+    state.gameOver = false;
+    state.inputLocked = false;
+    state.score = 0;
+    state.time = 0;
+    clearWorld();
     updateScoreUI();
+    updateHighScoreUI();
     gameOverEl.hidden = true;
+    titleScreenEl.hidden = true;
+    if (hudEl) hudEl.hidden = false;
     if (phaseHintEl) phaseHintEl.classList.remove("is-hidden");
     hideAnswers();
     spawnBomb();
     state.running = true;
     state.lastTs = 0;
+  }
+
+  function showTitle() {
+    state.phase = "title";
+    state.running = false;
+    state.gameOver = false;
+    state.inputLocked = true;
+    clearWorld();
+    hideAnswers();
+    gameOverEl.hidden = true;
+    titleScreenEl.hidden = false;
+    if (hudEl) hudEl.hidden = true;
+    updateHighScoreUI();
   }
 
   // ——— Update / Draw ———
@@ -739,26 +878,51 @@
     if (state.running) {
       update(dt);
     } else {
-      // Game Over: Partikel/Explosionen noch auslaufen lassen
       updateParticles(dt);
       updateLasers(dt);
       updateExplosions(dt);
+      // Idle: Kanone schaut leicht nach oben
+      if (state.phase === "title") {
+        state.cannon.targetAngle = -Math.PI / 2 + Math.sin(tsSec * 0.6) * 0.15;
+        updateCannon(dt);
+      }
     }
     draw();
     requestAnimationFrame(frame);
   }
 
+  function onKeyDown(e) {
+    if (e.code === "Digit1" || e.code === "Numpad1") {
+      e.preventDefault();
+      if (state.phase === "playing") onAnswerClick(answerBtns[0]);
+    } else if (e.code === "Digit2" || e.code === "Numpad2") {
+      e.preventDefault();
+      if (state.phase === "playing") onAnswerClick(answerBtns[1]);
+    } else if (e.code === "Digit3" || e.code === "Numpad3") {
+      e.preventDefault();
+      if (state.phase === "playing") onAnswerClick(answerBtns[2]);
+    } else if (e.code === "Enter" || e.code === "Space") {
+      if (state.phase === "title" && !titleScreenEl.hidden) {
+        e.preventDefault();
+        startGame();
+      } else if (state.phase === "gameover" && !gameOverEl.hidden) {
+        e.preventDefault();
+        startGame();
+      }
+    }
+  }
+
   // ——— Start ———
   function init() {
+    state.highScore = loadHighScore();
     resize();
     window.addEventListener("resize", resize);
+    window.addEventListener("keydown", onKeyDown);
 
-    restartBtn.addEventListener("click", () => {
-      resetGame();
-    });
+    startBtn.addEventListener("click", () => startGame());
+    restartBtn.addEventListener("click", () => startGame());
 
     answerBtns.forEach((btn) => {
-      // pointerup: bessere Touch-Latenz, verhindert Doppel-Fire mit click
       btn.addEventListener("pointerup", (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         e.preventDefault();
@@ -770,10 +934,8 @@
       phaseHintEl.textContent = "Wähle das richtige Ergebnis — zerstöre die Bombe!";
     }
 
-    // Generator-Sanity (still, nur bei Fehlern console.warn)
     assertAnswerGenerator();
-
-    resetGame();
+    showTitle();
     requestAnimationFrame(frame);
   }
 
@@ -781,11 +943,9 @@
 
   window.EinmaleinsGame = {
     state,
-    resetGame,
-    destroyBombWithLaser,
-    bombHitGround,
-    showGameOver,
-    spawnBomb,
+    startGame,
+    showTitle,
     generateAnswers,
+    SFX,
   };
 })();

@@ -84,8 +84,7 @@ einmaleins/
 ├── styles.css
 ├── game.js
 ├── assets/          # optional: bomb.svg, cannon.svg, sounds
-├── SPEC.md
-└── TODO.md
+└── SPEC.md
 ```
 
 ## UI-Elemente
