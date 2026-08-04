@@ -998,7 +998,7 @@
     });
 
     if (phaseHintEl) {
-      phaseHintEl.textContent = "Wähle das richtige Ergebnis — zerstöre die Bombe!";
+      phaseHintEl.textContent = "";
     }
 
     assertAnswerGenerator();
