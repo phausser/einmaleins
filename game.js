@@ -28,10 +28,11 @@
 
   // ——— Konstanten ———
   const GROUND_RATIO = 0.12;
-  /** Basis-Fallzeit (s); wird mit Score kürzer */
-  const FALL_DURATION_BASE = 11;
-  const FALL_DURATION_MIN = 6.5;
-  const FALL_SPEEDUP_PER_POINT = 0.28;
+  /** Fallzeit oben→Boden (s): startet bei BASE, sinkt mit Score bis MIN */
+  const FALL_DURATION_BASE = 10;
+  const FALL_DURATION_MIN = 5;
+  /** Nach ~20 Punkten ist die Min-Dauer erreicht */
+  const FALL_SPEEDUP_PER_POINT = 0.25;
   const PARTICLE_RATE = 48;
   const LASER_DURATION = 0.45;
   const EXPLOSION_DURATION = 0.7;
@@ -276,20 +277,42 @@
   }
 
   // ——— Resize / Layout ———
+  function getViewportSize() {
+    const vv = window.visualViewport;
+    if (vv && vv.width > 0 && vv.height > 0) {
+      return { w: Math.round(vv.width), h: Math.round(vv.height) };
+    }
+    return { w: window.innerWidth, h: window.innerHeight };
+  }
+
   function updateLayoutVars() {
     const groundH = state.height * GROUND_RATIO;
-    const cannonS = clamp(state.height / 700, 0.8, 1.3);
-    const cannonClear = Math.round(72 * cannonS);
+    const cannonS = clamp(state.height / 700, 0.75, 1.3);
+    const isNarrow = state.width < 480;
+    const isShort = state.height < 520;
+    const cannonClear = Math.round((isShort ? 56 : isNarrow ? 64 : 72) * cannonS);
     if (gameRoot) {
       gameRoot.style.setProperty("--ground-h", `${groundH}px`);
       gameRoot.style.setProperty("--cannon-clear", `${cannonClear}px`);
     }
   }
 
+  /**
+   * Fallgeschwindigkeit so setzen, dass die restliche Strecke
+   * in der restlichen Fallzeit ankommt (unabhängig von Fensterhöhe).
+   */
+  function syncBombVelocity(bomb) {
+    if (!bomb || !bomb.alive) return;
+    const noseOffset = 40 * bomb.scale;
+    const remainingDist = Math.max(1, state.groundY - noseOffset - bomb.y);
+    const elapsed = Math.max(0, state.time - bomb.spawnTime);
+    const remainingTime = Math.max(0.15, bomb.fallDuration - elapsed);
+    bomb.vy = remainingDist / remainingTime;
+  }
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const { w, h } = getViewportSize();
     state.dpr = dpr;
     state.width = w;
     state.height = h;
@@ -304,6 +327,13 @@
     state.cannon.x = w / 2;
     state.cannon.y = state.groundY - 8;
     updateLayoutVars();
+
+    // Aktive Bombe: Geschwindigkeit an neue Höhe anpassen
+    if (state.bomb && state.bomb.alive) {
+      const s = clamp(h / 700, 0.75, 1.35);
+      state.bomb.scale = s;
+      syncBombVelocity(state.bomb);
+    }
   }
 
   // ——— Bombe ———
@@ -320,13 +350,16 @@
   function createBomb() {
     const scale = clamp(state.height / 700, 0.75, 1.35);
     const halfW = 22 * scale;
-    const margin = Math.max(48, halfW + 16);
+    // Auf schmalen Screens etwas mehr Rand, damit die Aufgabe lesbar bleibt
+    const margin = Math.max(state.width < 400 ? 36 : 48, halfW + 16);
     const [a, b] = randomFactors();
     const answers = generateAnswers(a, b);
 
     const spawnY = -60 * scale;
     const noseOffset = 40 * scale;
-    const travel = Math.max(120, state.groundY - noseOffset - spawnY);
+    // Strecke hängt von der Fensterhöhe ab → vy = Strecke / Zeit
+    // → Fall dauert immer fallDuration Sekunden, egal wie hoch das Fenster ist
+    const travel = Math.max(80, state.groundY - noseOffset - spawnY);
     const duration = fallDurationForScore(state.score);
     const vy = travel / duration;
 
@@ -342,6 +375,8 @@
       label: `${a} × ${b}`,
       alive: true,
       particleAcc: 0,
+      spawnTime: state.time,
+      fallDuration: duration,
     };
   }
 
@@ -412,10 +447,12 @@
     ctx.fillRect(-1.5 * s, finTop - stemH * 0.3, 3 * s, stemH + 4 * s);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${Math.round(12 * s)}px system-ui, sans-serif`;
+    // Mindestens ~13px für Lesbarkeit auf kleinen Screens
+    const fontPx = Math.max(13, Math.round(13 * s));
+    ctx.font = `bold ${fontPx}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
     ctx.shadowBlur = 2;
     ctx.fillText(bomb.label, 0, top + 26 * s);
     ctx.shadowBlur = 0;
@@ -927,13 +964,33 @@
     state.highScore = loadHighScore();
     resize();
     window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", () => {
+      // iOS liefert nach Drehung oft erst verzögert korrekte Maße
+      window.setTimeout(resize, 100);
+      window.setTimeout(resize, 350);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", resize);
+      window.visualViewport.addEventListener("scroll", resize);
+    }
     window.addEventListener("keydown", onKeyDown);
+
+    // Pull-to-Refresh / Overscroll auf Touch-Geräten dämpfen
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.target.closest(".overlay-card")) return;
+        e.preventDefault();
+      },
+      { passive: false }
+    );
 
     startBtn.addEventListener("click", () => startGame());
     restartBtn.addEventListener("click", () => startGame());
 
     answerBtns.forEach((btn) => {
-      btn.addEventListener("pointerup", (e) => {
+      // pointerdown: sofortiges Feedback auf Touch (kein 300ms-Wartegefühl)
+      btn.addEventListener("pointerdown", (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         e.preventDefault();
         onAnswerClick(btn);
