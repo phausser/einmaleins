@@ -235,29 +235,59 @@
     return correct + 4;
   }
 
+  /** Falsch um ±10 (Zehner-Fehler). */
+  function pickTenOff(correct, used) {
+    for (const d of shuffle([10, -10])) {
+      const n = correct + d;
+      if (n > 0 && !used.has(n)) return n;
+    }
+    return null;
+  }
+
+  /** Falsch über benachbarten Faktor (a±1)·b bzw. a·(b±1). */
+  function pickFactorWrong(a, b, correct, used) {
+    const opts = factorWrongCandidates(a, b, correct).filter((p) => !used.has(p));
+    if (opts.length > 0) return opts[randInt(0, opts.length - 1)];
+    return null;
+  }
+
+  /**
+   * Drei Berechnungen für Falschantworten:
+   *  1) Faktor ±1 (z. B. 6×7 → 5×7 / 6×8 …)
+   *  2) Nahtreffer ±1…3
+   *  3) Zehner ±10
+   * Zwei verschiedene davon werden zufällig gewählt.
+   */
   function generateAnswers(a, b) {
     const correct = a * b;
     const used = new Set([correct]);
 
-    const factorOpts = factorWrongCandidates(a, b, correct);
-    let factorWrong;
-    if (factorOpts.length > 0) {
-      factorWrong = factorOpts[randInt(0, factorOpts.length - 1)];
-    } else {
-      factorWrong = correct + Math.max(a, b, 1);
-    }
-    used.add(factorWrong);
+    const makers = shuffle([
+      () => pickFactorWrong(a, b, correct, used),
+      () => pickNearMiss(correct, used),
+      () => pickTenOff(correct, used),
+    ]);
 
-    const near = pickNearMiss(correct, used);
-    const values = [correct, factorWrong, near];
-    if (new Set(values).size !== 3) {
-      values[2] = pickNearMiss(correct, new Set([correct, factorWrong]));
+    const wrongs = [];
+    for (const make of makers) {
+      if (wrongs.length >= 2) break;
+      const n = make();
+      if (n == null || n <= 0 || used.has(n)) continue;
+      used.add(n);
+      wrongs.push(n);
+    }
+
+    // Fallback, falls eine Strategie keinen gültigen Wert lieferte
+    while (wrongs.length < 2) {
+      const n = pickNearMiss(correct, used);
+      used.add(n);
+      wrongs.push(n);
     }
 
     return shuffle([
-      { value: values[0], correct: true },
-      { value: values[1], correct: false },
-      { value: values[2], correct: false },
+      { value: correct, correct: true },
+      { value: wrongs[0], correct: false },
+      { value: wrongs[1], correct: false },
     ]);
   }
 
