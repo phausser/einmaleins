@@ -24,7 +24,6 @@
   const titleScreenEl = document.getElementById("title-screen");
   const restartBtn = document.getElementById("restart-btn");
   const startBtn = document.getElementById("start-btn");
-  const phaseHintEl = document.getElementById("phase-hint");
 
   // ——— Konstanten ———
   const GROUND_RATIO = 0.12;
@@ -743,15 +742,8 @@
     state.bomb = null;
     state.score += 1;
     updateScoreUI();
-    hideHintIfNeeded();
     state.respawnAt = state.time + RESPAWN_DELAY + LASER_DURATION * 0.3;
     return true;
-  }
-
-  function hideHintIfNeeded() {
-    if (phaseHintEl && state.score >= 1) {
-      phaseHintEl.classList.add("is-hidden");
-    }
   }
 
   function bombHitGround() {
@@ -851,7 +843,6 @@
     gameOverEl.hidden = true;
     titleScreenEl.hidden = true;
     if (hudEl) hudEl.hidden = false;
-    if (phaseHintEl) phaseHintEl.classList.remove("is-hidden");
     hideAnswers();
     spawnBomb();
     state.running = true;
@@ -996,10 +987,6 @@
         onAnswerClick(btn);
       });
     });
-
-    if (phaseHintEl) {
-      phaseHintEl.textContent = "Wähle das richtige Ergebnis — zerstöre die Bombe!";
-    }
 
     assertAnswerGenerator();
     showTitle();
