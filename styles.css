@@ -50,7 +50,7 @@ body {
 /* —— HUD —— */
 #hud {
   position: absolute;
-  top: 2rem;
+  bottom: 0;
   left: 0;
   right: 0;
   display: flex;
