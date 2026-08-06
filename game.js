@@ -463,6 +463,7 @@
       correct: a * b,
       answers,
       label: `${a} × ${b}`,
+      isRepeat: Boolean(forcedFactors),
       alive: true,
       particleAcc: 0,
       spawnTime: state.time,
@@ -896,7 +897,9 @@
     if (isCorrect) {
       const bomb = state.bomb;
       const answerSeconds = Math.max(0, state.time - bomb.spawnTime);
-      if (answerSeconds >= SLOW_ANSWER_SECONDS) rememberSlowCombo(bomb.a, bomb.b);
+      if (!bomb.isRepeat && answerSeconds >= SLOW_ANSWER_SECONDS) {
+        rememberSlowCombo(bomb.a, bomb.b);
+      }
 
       btn.classList.add("correct");
       destroyBombWithLaser();
