@@ -395,6 +395,10 @@
     return due;
   }
 
+  function getNextRepeatDueAt() {
+    return state.questionsAsked + REPEAT_AFTER_QUESTIONS;
+  }
+
   function createBomb(forcedFactors = null) {
     const scale = clamp(state.height / 700, 0.75, 1.35);
     const halfW = 22 * scale;
@@ -431,7 +435,6 @@
   function spawnBomb() {
     state.questionsAsked += 1;
     const repeat = getDueRepeatCombo();
-    if (repeat) repeat.dueAt = state.questionsAsked + REPEAT_AFTER_QUESTIONS;
     state.bomb = createBomb(repeat ? [repeat.a, repeat.b] : null);
     state.respawnAt = 0;
     state.inputLocked = false;
@@ -857,11 +860,12 @@
       const isSlow = answerSeconds >= SLOW_ANSWER_SECONDS;
 
       if (existing) {
-        existing.fastStreak = isFastEnough ? existing.fastStreak + 1 : 0;
+        if (isFastEnough) existing.fastStreak += 1;
+        else existing.fastStreak = 0;
         if (existing.fastStreak >= REQUIRED_FAST_REPEATS) {
           state.repeatCombos.delete(key);
         } else {
-          existing.dueAt = state.questionsAsked + REPEAT_AFTER_QUESTIONS;
+          existing.dueAt = getNextRepeatDueAt();
           existing.lastAnswerSeconds = answerSeconds;
         }
       } else if (isSlow) {
@@ -869,7 +873,7 @@
           a: bomb.a,
           b: bomb.b,
           fastStreak: 0,
-          dueAt: state.questionsAsked + REPEAT_AFTER_QUESTIONS,
+          dueAt: getNextRepeatDueAt(),
           lastAnswerSeconds: answerSeconds,
         });
       }
