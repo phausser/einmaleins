@@ -38,6 +38,10 @@
   const RESPAWN_DELAY = 0.55;
   const GAME_OVER_DELAY = 0.75;
   const HS_KEY = "einmaleins-bomben-highscore";
+  const SLOW_ANSWER_SECONDS = 4.2;
+  const MEMORIZED_ANSWER_SECONDS = 2.2;
+  const REQUIRED_FAST_REPEATS = 2;
+  const REPEAT_AFTER_QUESTIONS = 2;
 
   // ——— Zustand ———
   const state = {
@@ -65,6 +69,8 @@
     respawnAt: 0,
     time: 0,
     gameOverAt: 0,
+    questionsAsked: 0,
+    repeatCombos: new Map(),
   };
 
   // ——— Highscore ———
@@ -376,12 +382,29 @@
     return [a, b];
   }
 
-  function createBomb() {
+  function comboKey(a, b) {
+    return `${a}x${b}`;
+  }
+
+  function getDueRepeatCombo() {
+    let due = null;
+    for (const entry of state.repeatCombos.values()) {
+      if (entry.dueAt > state.questionsAsked) continue;
+      if (!due || entry.dueAt < due.dueAt) due = entry;
+    }
+    return due;
+  }
+
+  function getNextRepeatDueAt() {
+    return state.questionsAsked + REPEAT_AFTER_QUESTIONS;
+  }
+
+  function createBomb(forcedFactors = null) {
     const scale = clamp(state.height / 700, 0.75, 1.35);
     const halfW = 22 * scale;
     // Auf schmalen Screens etwas mehr Rand, damit die Aufgabe lesbar bleibt
     const margin = Math.max(state.width < 400 ? 36 : 48, halfW + 16);
-    const [a, b] = randomFactors();
+    const [a, b] = forcedFactors || randomFactors();
     const answers = generateAnswers(a, b);
 
     const spawnY = -60 * scale;
@@ -410,7 +433,9 @@
   }
 
   function spawnBomb() {
-    state.bomb = createBomb();
+    state.questionsAsked += 1;
+    const repeat = getDueRepeatCombo();
+    state.bomb = createBomb(repeat ? [repeat.a, repeat.b] : null);
     state.respawnAt = 0;
     state.inputLocked = false;
     showAnswers(state.bomb.answers);
@@ -827,6 +852,32 @@
 
     const isCorrect = btn.dataset.correct === "1";
     if (isCorrect) {
+      const bomb = state.bomb;
+      const answerSeconds = Math.max(0, state.time - bomb.spawnTime);
+      const key = comboKey(bomb.a, bomb.b);
+      const existing = state.repeatCombos.get(key);
+      const isFastEnough = answerSeconds <= MEMORIZED_ANSWER_SECONDS;
+      const isSlow = answerSeconds >= SLOW_ANSWER_SECONDS;
+
+      if (existing) {
+        if (isFastEnough) existing.fastStreak += 1;
+        else existing.fastStreak = 0;
+        if (existing.fastStreak >= REQUIRED_FAST_REPEATS) {
+          state.repeatCombos.delete(key);
+        } else {
+          existing.dueAt = getNextRepeatDueAt();
+          existing.lastAnswerSeconds = answerSeconds;
+        }
+      } else if (isSlow) {
+        state.repeatCombos.set(key, {
+          a: bomb.a,
+          b: bomb.b,
+          fastStreak: 0,
+          dueAt: getNextRepeatDueAt(),
+          lastAnswerSeconds: answerSeconds,
+        });
+      }
+
       btn.classList.add("correct");
       destroyBombWithLaser();
     } else {
@@ -855,6 +906,8 @@
     state.bomb = null;
     state.respawnAt = 0;
     state.gameOverAt = 0;
+    state.questionsAsked = 0;
+    state.repeatCombos.clear();
     state.cannon.angle = -Math.PI / 2;
     state.cannon.targetAngle = -Math.PI / 2;
   }
