@@ -39,9 +39,10 @@
   const GAME_OVER_DELAY = 0.75;
   const HS_KEY = "einmaleins-bomben-highscore";
   const SLOW_ANSWER_SECONDS = 4.2;
-  const MEMORIZED_ANSWER_SECONDS = 2.2;
-  const REQUIRED_FAST_REPEATS = 2;
-  const REPEAT_AFTER_QUESTIONS = 2;
+  const MAX_REPEAT_COMBOS = 2;
+  const REPEAT_MIN_AFTER_QUESTIONS = 2;
+  const REPEAT_MAX_AFTER_QUESTIONS = 10;
+  const REPEAT_NORMAL_GAP = 1;
 
   // ——— Zustand ———
   const state = {
@@ -71,6 +72,7 @@
     gameOverAt: 0,
     questionsAsked: 0,
     repeatCombos: new Map(),
+    lastRepeatQuestionAt: -Infinity,
   };
 
   // ——— Highscore ———
@@ -386,17 +388,53 @@
     return `${a}x${b}`;
   }
 
-  function getDueRepeatCombo() {
-    let due = null;
-    for (const entry of state.repeatCombos.values()) {
-      if (entry.dueAt > state.questionsAsked) continue;
-      if (!due || entry.dueAt < due.dueAt) due = entry;
-    }
-    return due;
+  function nextRepeatDueAt() {
+    return (
+      state.questionsAsked +
+      randInt(REPEAT_MIN_AFTER_QUESTIONS, REPEAT_MAX_AFTER_QUESTIONS)
+    );
   }
 
-  function getNextRepeatDueAt() {
-    return state.questionsAsked + REPEAT_AFTER_QUESTIONS;
+  function rememberSlowCombo(a, b) {
+    const key = comboKey(a, b);
+    const existing = state.repeatCombos.get(key);
+    if (existing) {
+      existing.dueAt = nextRepeatDueAt();
+      existing.askedAt = state.questionsAsked;
+      return;
+    }
+
+    if (state.repeatCombos.size >= MAX_REPEAT_COMBOS) {
+      let oldestKey = null;
+      let oldestAskedAt = Infinity;
+      for (const [k, entry] of state.repeatCombos.entries()) {
+        if (entry.askedAt < oldestAskedAt) {
+          oldestAskedAt = entry.askedAt;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) state.repeatCombos.delete(oldestKey);
+    }
+
+    state.repeatCombos.set(key, {
+      a,
+      b,
+      dueAt: nextRepeatDueAt(),
+      askedAt: state.questionsAsked,
+    });
+  }
+
+  function getDueRepeatCombo() {
+    if (state.questionsAsked - state.lastRepeatQuestionAt <= REPEAT_NORMAL_GAP) {
+      return null;
+    }
+
+    let due = null;
+    for (const [key, entry] of state.repeatCombos.entries()) {
+      if (entry.dueAt > state.questionsAsked) continue;
+      if (!due || entry.dueAt < due.entry.dueAt) due = { key, entry };
+    }
+    return due;
   }
 
   function createBomb(forcedFactors = null) {
@@ -435,7 +473,11 @@
   function spawnBomb() {
     state.questionsAsked += 1;
     const repeat = getDueRepeatCombo();
-    state.bomb = createBomb(repeat ? [repeat.a, repeat.b] : null);
+    if (repeat) {
+      state.repeatCombos.delete(repeat.key);
+      state.lastRepeatQuestionAt = state.questionsAsked;
+    }
+    state.bomb = createBomb(repeat ? [repeat.entry.a, repeat.entry.b] : null);
     state.respawnAt = 0;
     state.inputLocked = false;
     showAnswers(state.bomb.answers);
@@ -854,29 +896,7 @@
     if (isCorrect) {
       const bomb = state.bomb;
       const answerSeconds = Math.max(0, state.time - bomb.spawnTime);
-      const key = comboKey(bomb.a, bomb.b);
-      const existing = state.repeatCombos.get(key);
-      const isFastEnough = answerSeconds <= MEMORIZED_ANSWER_SECONDS;
-      const isSlow = answerSeconds >= SLOW_ANSWER_SECONDS;
-
-      if (existing) {
-        if (isFastEnough) existing.fastStreak += 1;
-        else existing.fastStreak = 0;
-        if (existing.fastStreak >= REQUIRED_FAST_REPEATS) {
-          state.repeatCombos.delete(key);
-        } else {
-          existing.dueAt = getNextRepeatDueAt();
-          existing.lastAnswerSeconds = answerSeconds;
-        }
-      } else if (isSlow) {
-        state.repeatCombos.set(key, {
-          a: bomb.a,
-          b: bomb.b,
-          fastStreak: 0,
-          dueAt: getNextRepeatDueAt(),
-          lastAnswerSeconds: answerSeconds,
-        });
-      }
+      if (answerSeconds >= SLOW_ANSWER_SECONDS) rememberSlowCombo(bomb.a, bomb.b);
 
       btn.classList.add("correct");
       destroyBombWithLaser();
@@ -908,6 +928,7 @@
     state.gameOverAt = 0;
     state.questionsAsked = 0;
     state.repeatCombos.clear();
+    state.lastRepeatQuestionAt = -Infinity;
     state.cannon.angle = -Math.PI / 2;
     state.cannon.targetAngle = -Math.PI / 2;
   }
