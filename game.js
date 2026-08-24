@@ -37,7 +37,8 @@
   const EXPLOSION_DURATION = 0.7;
   const RESPAWN_DELAY = 0.55;
   const GAME_OVER_DELAY = 0.75;
-  const HS_KEY = "einmaleins-bomben-highscore";
+  const HS_KEY_PREFIX = "einmaleins-bomben-highscore";
+  const LEGACY_HS_KEY = HS_KEY_PREFIX;
   const SLOW_ANSWER_SECONDS = 4.2;
   const MAX_REPEAT_COMBOS = 2;
   const REPEAT_MIN_AFTER_QUESTIONS = 2;
@@ -77,18 +78,30 @@
   };
 
   // ——— Highscore ———
-  function loadHighScore() {
+  function highScoreKeyForOperator(operator) {
+    return `${HS_KEY_PREFIX}-${operator}`;
+  }
+
+  function parseHighScore(rawValue) {
+    const n = parseInt(rawValue || "0", 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  function loadHighScore(operator = state.operator) {
     try {
-      const n = parseInt(localStorage.getItem(HS_KEY) || "0", 10);
-      return Number.isFinite(n) && n > 0 ? n : 0;
+      const key = highScoreKeyForOperator(operator);
+      const value = localStorage.getItem(key);
+      if (value != null) return parseHighScore(value);
+      if (operator === "*") return parseHighScore(localStorage.getItem(LEGACY_HS_KEY));
+      return 0;
     } catch {
       return 0;
     }
   }
 
-  function saveHighScore(n) {
+  function saveHighScore(n, operator = state.operator) {
     try {
-      localStorage.setItem(HS_KEY, String(n));
+      localStorage.setItem(highScoreKeyForOperator(operator), String(n));
     } catch {
       /* private mode / blocked */
     }
@@ -1217,6 +1230,8 @@
         const op = btn.dataset.op;
         if (!op) return;
         state.operator = op;
+        state.highScore = loadHighScore(op);
+        updateHighScoreUI();
         opPickerEl.querySelectorAll(".op-btn").forEach((b) => {
           const active = b.dataset.op === op;
           b.classList.toggle("active", active);
