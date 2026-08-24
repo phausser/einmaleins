@@ -1169,6 +1169,7 @@
       if (state.phase === "playing") onAnswerClick(answerBtns[2]);
     } else if (e.code === "Enter" || e.code === "Space") {
       if (state.phase === "title" && !titleScreenEl.hidden) {
+        if (e.target?.closest?.("#op-picker .op-btn")) return;
         e.preventDefault();
         startGame();
       } else if (state.phase === "gameover" && !gameOverEl.hidden) {
