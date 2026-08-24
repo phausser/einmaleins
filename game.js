@@ -38,7 +38,7 @@
   const RESPAWN_DELAY = 0.55;
   const GAME_OVER_DELAY = 0.75;
   const HS_KEY_PREFIX = "einmaleins-bomben-highscore";
-  const LEGACY_HS_KEY = "einmaleins-bomben-highscore";
+  const LEGACY_HS_KEY = HS_KEY_PREFIX;
   const SLOW_ANSWER_SECONDS = 4.2;
   const MAX_REPEAT_COMBOS = 2;
   const REPEAT_MIN_AFTER_QUESTIONS = 2;
