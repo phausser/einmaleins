@@ -52,6 +52,7 @@
     inputLocked: false,
     score: 0,
     highScore: 0,
+    operator: "*", // * | + | - | /
     width: 0,
     height: 0,
     dpr: 1,
@@ -313,6 +314,104 @@
     }
   }
 
+  // ——— Operanden-Generatoren für +, −, ÷ ———
+  function randomAdditionOperands() {
+    // a + b ≤ 200, a,b ≥ 1
+    const a = randInt(1, 99);
+    const b = randInt(1, Math.min(99, 200 - a));
+    return [a, b];
+  }
+
+  function randomSubtractionOperands() {
+    // a − b > 0, Ergebnis bis 3-stellig
+    const a = randInt(2, 200);
+    const b = randInt(1, a - 1);
+    return [a, b];
+  }
+
+  function randomDivisionOperands() {
+    // a ÷ b = c (ganze Zahl), b ∈ 2..20, c ∈ 1..20 (b≥2 vermeidet triviale ÷1-Aufgaben)
+    const b = randInt(2, 20);
+    const c = randInt(1, 20);
+    return [b * c, b]; // [a, b], correct = c
+  }
+
+  /** Ablenkantworten für + und −: Zehner ±10 und Nahbereich ±1…5. */
+  function generateAnswersSubAdd(correct) {
+    const used = new Set([correct]);
+    const makers = shuffle([
+      () => pickTenOff(correct, used),
+      () => {
+        const offsets = shuffle([-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]);
+        for (const d of offsets) {
+          const n = correct + d;
+          if (n > 0 && !used.has(n)) return n;
+        }
+        return null;
+      },
+    ]);
+    const wrongs = [];
+    for (const make of makers) {
+      if (wrongs.length >= 2) break;
+      const n = make();
+      if (n == null || n <= 0 || used.has(n)) continue;
+      used.add(n);
+      wrongs.push(n);
+    }
+    while (wrongs.length < 2) {
+      const n = pickNearMiss(correct, used);
+      used.add(n);
+      wrongs.push(n);
+    }
+    return shuffle([
+      { value: correct, correct: true },
+      { value: wrongs[0], correct: false },
+      { value: wrongs[1], correct: false },
+    ]);
+  }
+
+  /**
+   * Ablenkantworten für ÷: benachbarter Divisor (falls ganzzahlig),
+   * Nahtreffer ±1…3, Zehner ±10 – wie bei ×.
+   */
+  function generateAnswersDivision(a, b, correct) {
+    const used = new Set([correct]);
+    const factorCands = [];
+    for (const db of [-1, 1]) {
+      const nb = b + db;
+      if (nb >= 1 && a % nb === 0) {
+        const nc = a / nb;
+        if (nc !== correct && !used.has(nc)) factorCands.push(nc);
+      }
+    }
+    const makers = shuffle([
+      () =>
+        factorCands.length > 0
+          ? factorCands[randInt(0, factorCands.length - 1)]
+          : null,
+      () => pickNearMiss(correct, used),
+      () => pickTenOff(correct, used),
+    ]);
+    const wrongs = [];
+    for (const make of makers) {
+      if (wrongs.length >= 2) break;
+      const n = make();
+      if (n == null || n <= 0 || used.has(n)) continue;
+      used.add(n);
+      wrongs.push(n);
+    }
+    while (wrongs.length < 2) {
+      const n = pickNearMiss(correct, used);
+      used.add(n);
+      wrongs.push(n);
+    }
+    return shuffle([
+      { value: correct, correct: true },
+      { value: wrongs[0], correct: false },
+      { value: wrongs[1], correct: false },
+    ]);
+  }
+
   // ——— Resize / Layout ———
   function getViewportSize() {
     const vv = window.visualViewport;
@@ -385,7 +484,7 @@
   }
 
   function comboKey(a, b) {
-    return `${a}x${b}`;
+    return `${state.operator}:${a}x${b}`;
   }
 
   function nextRepeatDueAt() {
@@ -438,12 +537,34 @@
   }
 
   function createBomb(forcedFactors = null) {
+    const op = state.operator;
     const scale = clamp(state.height / 700, 0.75, 1.35);
     const halfW = 22 * scale;
     // Auf schmalen Screens etwas mehr Rand, damit die Aufgabe lesbar bleibt
     const margin = Math.max(state.width < 400 ? 36 : 48, halfW + 16);
-    const [a, b] = forcedFactors || randomFactors();
-    const answers = generateAnswers(a, b);
+
+    let a, b, correct, label, answers;
+    if (op === "+") {
+      [a, b] = forcedFactors || randomAdditionOperands();
+      correct = a + b;
+      label = `${a} + ${b}`;
+      answers = generateAnswersSubAdd(correct);
+    } else if (op === "-") {
+      [a, b] = forcedFactors || randomSubtractionOperands();
+      correct = a - b;
+      label = `${a} \u2212 ${b}`;
+      answers = generateAnswersSubAdd(correct);
+    } else if (op === "/") {
+      [a, b] = forcedFactors || randomDivisionOperands();
+      correct = a / b;
+      label = `${a} \u00f7 ${b}`;
+      answers = generateAnswersDivision(a, b, correct);
+    } else {
+      [a, b] = forcedFactors || randomFactors();
+      correct = a * b;
+      label = `${a} \u00d7 ${b}`;
+      answers = generateAnswers(a, b);
+    }
 
     const spawnY = -60 * scale;
     const noseOffset = 40 * scale;
@@ -460,9 +581,9 @@
       scale,
       a,
       b,
-      correct: a * b,
+      correct,
       answers,
-      label: `${a} × ${b}`,
+      label,
       isRepeat: Boolean(forcedFactors),
       alive: true,
       particleAcc: 0,
@@ -1048,6 +1169,7 @@
       if (state.phase === "playing") onAnswerClick(answerBtns[2]);
     } else if (e.code === "Enter" || e.code === "Space") {
       if (state.phase === "title" && !titleScreenEl.hidden) {
+        if (e.target?.closest?.("#op-picker .op-btn")) return;
         e.preventDefault();
         startGame();
       } else if (state.phase === "gameover" && !gameOverEl.hidden) {
@@ -1085,6 +1207,23 @@
 
     startBtn.addEventListener("click", () => startGame());
     restartBtn.addEventListener("click", () => startGame());
+
+    // Rechenart-Auswahl
+    const opPickerEl = document.getElementById("op-picker");
+    if (opPickerEl) {
+      opPickerEl.addEventListener("click", (e) => {
+        const btn = e.target.closest(".op-btn");
+        if (!btn) return;
+        const op = btn.dataset.op;
+        if (!op) return;
+        state.operator = op;
+        opPickerEl.querySelectorAll(".op-btn").forEach((b) => {
+          const active = b.dataset.op === op;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-pressed", String(active));
+        });
+      });
+    }
 
     answerBtns.forEach((btn) => {
       // pointerdown: sofortiges Feedback auf Touch (kein 300ms-Wartegefühl)

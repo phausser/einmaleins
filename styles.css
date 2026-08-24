@@ -590,6 +590,53 @@ body {
   }
 }
 
+/* —— Operator-Picker (Titelscreen) —— */
+.op-picker {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.op-btn {
+  min-width: 3rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 3px solid #94a3b8;
+  border-radius: 0.85rem;
+  box-shadow: 0 4px 0 #94a3b8;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.op-btn:hover:not(.active) {
+  background: #e2e8f0;
+}
+
+.op-btn:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.op-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #94a3b8;
+}
+
+.op-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #0f172a;
+  box-shadow: 0 4px 0 #0f172a;
+}
+
 /* Prefer reduced motion: Feedback-Animationen abschwächen */
 @media (prefers-reduced-motion: reduce) {
   .answer-btn.wrong,
